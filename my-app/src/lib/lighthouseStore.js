@@ -8,6 +8,7 @@ export const lighthouseStatus = writable({
     hardware: 'UNKNOWN',
     message: '',
     loading: false,
+    isRefreshing: false,
     error: null
 });
 
@@ -34,14 +35,29 @@ async function apiRequest(path, options = {}) {
 }
 
 export const lighthouseActions = {
-    async fetchStatus() {
-        lighthouseStatus.update(s => ({ ...s, loading: true }));
+    async fetchStatus(isSilent = false) {
+        if (isSilent) {
+            lighthouseStatus.update(s => ({ ...s, isRefreshing: true }));
+        } else {
+            lighthouseStatus.update(s => ({ ...s, loading: true }));
+        }
+        
         try {
             const status = await apiRequest('/status');
-            lighthouseStatus.set({ ...status, loading: false, error: null });
+            lighthouseStatus.set({ 
+                ...status, 
+                loading: false, 
+                isRefreshing: false, 
+                error: null 
+            });
             return status;
         } catch (err) {
-            lighthouseStatus.update(s => ({ ...s, loading: false, error: err.message }));
+            lighthouseStatus.update(s => ({ 
+                ...s, 
+                loading: false, 
+                isRefreshing: false, 
+                error: err.message 
+            }));
         }
     },
 

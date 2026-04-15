@@ -5,7 +5,7 @@
     let interval;
 
     onMount(() => {
-        lighthouseActions.fetchStatus();
+        lighthouseActions.fetchStatus(true);
     });
 
     onDestroy(() => {
@@ -57,10 +57,11 @@
         
         <button 
             class="btn-refresh" 
-            onclick={lighthouseActions.fetchStatus}
-            disabled={$lighthouseStatus.loading}
+            onclick={() => lighthouseActions.fetchStatus(true)}
+            disabled={$lighthouseStatus.loading || $lighthouseStatus.isRefreshing}
+            title="Refresh Status"
         >
-            ↻
+            <span class:spinning={$lighthouseStatus.isRefreshing}>↻</span>
         </button>
     </div>
 </div>
@@ -96,9 +97,24 @@
         border: 1px solid var(--border-color);
         color: var(--text-color-main);
         padding: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
     }
 
-    .btn-refresh:hover {
+    .btn-refresh:hover:not(:disabled) {
         background: #f0f0f0;
+    }
+
+    .spinning {
+        display: inline-block;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
 </style>

@@ -1,6 +1,7 @@
 <script>
     import LighthouseResults from "$lib/components/lighthouse_results.svelte";
     import LighthouseControl from "$lib/components/LighthouseControl.svelte";
+    import Console from "$lib/components/Console.svelte";
     import { lighthouseResults, lighthouseActions } from "$lib/lighthouseStore.js";
     import logo from "$lib/assets/D4G-Logo-2.png";
 
@@ -77,6 +78,8 @@
         </div>
     </div>
 </main>
+
+<Console />
 
 <style>
     .navbar {
