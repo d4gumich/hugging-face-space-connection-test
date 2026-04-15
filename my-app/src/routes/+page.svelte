@@ -1,84 +1,157 @@
 <script>
-    import LighthouseResults from "../lib/components/lighthouse_results.svelte";
+    import LighthouseResults from "$lib/components/lighthouse_results.svelte";
+    import LighthouseControl from "$lib/components/LighthouseControl.svelte";
+    import { lighthouseResults, lighthouseActions } from "$lib/lighthouseStore.js";
+    import logo from "../../static/D4G-Logo-2.png";
 
-    // Change host_url based on where backend is running (i.e. local vs pythonanywhere)
-    const host_url = 'http://127.0.0.1:8000/';
-    const base_path = 'api/v1/products/';
-    // If needed, update the below lighthouse path depending on what backend API will
-    // be exposed for ingesting pdf
-    const lighthouse_path = 'lighthouse/parse-pdf';
-    const url = host_url + base_path + lighthouse_path;
-    let file = null;
-    // status_active is hard coded in the meantime (still deciding backend workflow)
-    let status_active = true;
-    let extracted_texts = $state(null);
+    let file = $state(null);
 
-    // Handle file selection
     function handleFileChange(event) {
         file = event.target.files[0];
     }
 
-    // Send PDF to backend as formdata 
-    async function uploadPDF() {
+    async function handleUpload() {
         if (!file) {
             alert("Please select a PDF file first.");
             return;
         }
-
-        const formData = new FormData();
-        formData.append("file", file);
-
         try {
-            const response = await fetch(url, {
-                method: "POST",
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-
-            // Next steps for team: 
-            // 1) (Suggested) Add hugging face space status check incorporated
-            // as part of the backend work flow automatically (the user ONLY has to upload file 
-            // and receive results as opposed to them having to click a separate button to wake the space)
-            // 2) Receive and display information through svelte component 
-            // 3) Add visualization that articulates steps to user with waiting wheel 
-            // 4) Add this frontend code to official site 
-
-            const result = await response.json();
-            alert(`Upload successful: ${result.extracted_text}`);
-            extracted_texts = result.extracted_text;
-            console.log(extracted_texts);
-        } catch (error) {
-            console.error("Upload failed:", error);
-            alert("Failed to upload PDF.");
+            await lighthouseActions.uploadPdf(file);
+        } catch (err) {
+            alert("Upload failed. Ensure the Lighthouse engine is RUNNING.");
         }
     }
 </script>
 
-<div>
-    <h1>Testing Lighthouse Frontend</h1>
-    <input type="file" accept="application/pdf" onchange={handleFileChange} />
-    <button onclick={uploadPDF}>Upload PDF</button>
-</div>
-
-<div class="results-container">
-            {#if status_active}
-                {#if extracted_texts}
-                    <div class="output-container">
-                        <div class="output">
-                                <LighthouseResults extracted_text={extracted_texts}/>
-                        </div>
-                    </div>
-                    {/if}
-            {:else}
-                <p>
-                    <strong>The Hugging Face Space is inactive</strong>
-                </p>
-            {/if}
+<nav class="navbar">
+    <div class="nav-content">
+        <img src={logo} alt="Data4Good Logo" class="logo" />
+        <div class="nav-titles">
+            <h1>Lighthouse</h1>
+            <p>AI-Powered Profile Analysis</p>
+        </div>
     </div>
-<!-- Depending on the backend workflow the below code will need to change for
-the results to display -->
+</nav>
 
+<main class="container">
+    <div class="dashboard-grid">
+        <div class="sidebar">
+            <LighthouseControl />
+            
+            <div class="card upload-card">
+                <h3>Upload Document</h3>
+                <p>Analyze your resume or portfolio PDF.</p>
+                <div class="file-input-group">
+                    <input 
+                        type="file" 
+                        id="pdf-upload"
+                        accept="application/pdf" 
+                        onchange={handleFileChange} 
+                        class="file-input"
+                    />
+                    <label for="pdf-upload" class="file-label">
+                        {file ? file.name : "Choose PDF..."}
+                    </label>
+                </div>
+                <button 
+                    class="btn-primary w-full" 
+                    onclick={handleUpload}
+                    disabled={!file || $lighthouseResults.loading}
+                >
+                    {$lighthouseResults.loading ? "Uploading..." : "Extract Text"}
+                </button>
+            </div>
+        </div>
 
+        <div class="main-content">
+            <LighthouseResults />
+        </div>
+    </div>
+</main>
+
+<style>
+    .navbar {
+        background-color: white;
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem 0;
+        margin-bottom: 2rem;
+    }
+
+    .nav-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .logo {
+        height: 50px;
+        width: auto;
+    }
+
+    .nav-titles h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+
+    .nav-titles p {
+        margin: 0.2rem 0 0 0;
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 2rem;
+    }
+
+    .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .upload-card h3 { margin-top: 0; }
+    
+    .w-full { width: 100%; }
+
+    .file-input-group {
+        margin-bottom: 1rem;
+    }
+
+    .file-input {
+        display: none;
+    }
+
+    .file-label {
+        display: block;
+        padding: 0.8rem;
+        border: 2px dashed var(--border-color);
+        border-radius: 4px;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .file-label:hover {
+        border-color: var(--blue-color-main);
+    }
+
+    @media (max-width: 900px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .nav-content {
+            padding: 0 1rem;
+        }
+    }
+</style>
