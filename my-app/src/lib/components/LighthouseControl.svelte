@@ -15,9 +15,9 @@
     function getStatusClass(stage) {
         const s = stage?.toUpperCase() || '';
         if (s === 'RUNNING') return 'status-active';
-        if (s === 'STOPPED' || s === 'PAUSED' || s === 'SLEEPING') return 'status-inactive';
+        if (s === 'STOPPED' || s === 'PAUSED' || s === 'SLEEPING' || s === 'OFFLINE') return 'status-inactive';
         if (s.includes('BUILDING') || s.includes('STARTING') || s.includes('INITIALIZING') || s.includes('RUNNING_WITH_DEVIATIONS')) return 'status-loading';
-        return '';
+        return 'status-inactive'; // Default to inactive/gray instead of no color
     }
 </script>
 

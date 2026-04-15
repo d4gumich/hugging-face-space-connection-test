@@ -4,8 +4,8 @@ const HOST_URL = 'http://127.0.0.1:8000';
 const BASE_PATH = '/api/v1/products/lighthouse';
 
 export const lighthouseStatus = writable({
-    stage: 'UNKNOWN',
-    hardware: 'UNKNOWN',
+    stage: 'OFFLINE',
+    hardware: 'None',
     message: '',
     loading: false,
     isRefreshing: false,
