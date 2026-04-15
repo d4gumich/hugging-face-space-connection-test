@@ -29,7 +29,22 @@
     </div>
     
     <div class="status-details">
-        <p><strong>Hardware:</strong> {$lighthouseStatus.loading ? 'Requesting T4 Small...' : $lighthouseStatus.hardware}</p>
+        <p>
+            <strong>Hardware:</strong> 
+            {#if $lighthouseStatus.requestedHardware}
+                <span class="requesting-text">Requesting {$lighthouseStatus.requestedHardware}</span>
+            {:else}
+                {$lighthouseStatus.hardware}
+            {/if}
+        </p>
+        
+        {#if $lighthouseStatus.requestedHardware || $lighthouseStatus.stage === 'BUILDING' || $lighthouseStatus.stage === 'STARTING'}
+            <p class="estimate">
+                <span class="icon">⏱</span> 
+                Rough estimate: 3-5 minutes to boot
+            </p>
+        {/if}
+
         {#if $lighthouseStatus.message}
             <p class="message">{$lighthouseStatus.message}</p>
         {/if}
@@ -82,6 +97,31 @@
 
     .message { color: #666; font-style: italic; }
     .error { color: var(--error-color); font-weight: 600; }
+
+    .requesting-text {
+        color: var(--warning-color);
+        font-weight: 600;
+        animation: pulse 2s infinite;
+    }
+
+    .estimate {
+        background: #fff3e0;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        color: #e65100;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0.5rem 0;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+    }
 
     .actions {
         display: flex;

@@ -9,6 +9,7 @@ export const lighthouseStatus = writable({
     message: '',
     loading: false,
     isRefreshing: false,
+    requestedHardware: null, // Tracks pending hardware changes
     error: null
 });
 
@@ -45,11 +46,21 @@ export const lighthouseActions = {
         
         try {
             const status = await apiRequest('/status');
-            lighthouseStatus.set({ 
-                ...status, 
-                loading: false, 
-                isRefreshing: false, 
-                error: null 
+            lighthouseStatus.update(s => {
+                // Clear requestedHardware once the backend reports a valid hardware string 
+                // that isn't NULL or UNKNOWN
+                const isHardwareReady = status.hardware && 
+                                      status.hardware !== 'UNKNOWN' && 
+                                      status.hardware !== 'NULL' && 
+                                      status.hardware !== 'None';
+                
+                return {
+                    ...status,
+                    loading: false,
+                    isRefreshing: false,
+                    requestedHardware: isHardwareReady ? null : s.requestedHardware,
+                    error: null
+                };
             });
             return status;
         } catch (err) {
@@ -63,13 +74,17 @@ export const lighthouseActions = {
     },
 
     async wakeup() {
-        lighthouseStatus.update(s => ({ ...s, loading: true }));
+        lighthouseStatus.update(s => ({ ...s, loading: true, requestedHardware: 'T4 Small' }));
         try {
             const status = await apiRequest('/wakeup', { method: 'POST' });
-            lighthouseStatus.set({ ...status, loading: false, error: null });
+            lighthouseStatus.update(s => ({ 
+                ...status, 
+                loading: false, 
+                requestedHardware: s.requestedHardware 
+            }));
             return status;
         } catch (err) {
-            lighthouseStatus.update(s => ({ ...s, loading: false, error: err.message }));
+            lighthouseStatus.update(s => ({ ...s, loading: false, error: err.message, requestedHardware: null }));
         }
     },
 
@@ -77,7 +92,13 @@ export const lighthouseActions = {
         lighthouseStatus.update(s => ({ ...s, loading: true }));
         try {
             const status = await apiRequest('/pause', { method: 'POST' });
-            lighthouseStatus.set({ ...status, loading: false, error: null });
+            lighthouseStatus.set({ 
+                ...status, 
+                loading: false, 
+                isRefreshing: false, 
+                requestedHardware: null, 
+                error: null 
+            });
             return status;
         } catch (err) {
             lighthouseStatus.update(s => ({ ...s, loading: false, error: err.message }));
