@@ -1,16 +1,15 @@
 <script>
-    import { lighthouseResults, lighthouseActions, lighthouseStatus } from '../lighthouseStore.js';
+    import { lighthouseResults, lighthouseActions, lighthouseStatus, lighthouseSettings } from '../lighthouseStore.js';
     import { fade, slide } from 'svelte/transition';
 
-    let { extracted_text } = $props(); // Backward compatibility if needed
-    
-    // Use $derived for reactive values from stores in Svelte 5
-    let results = $derived($lighthouseResults.analysis);
-    let sections = $derived($lighthouseResults.sections);
-    let isSanitized = $derived($lighthouseResults.isSanitized);
-    let isEngineRunning = $derived($lighthouseStatus.stage === 'RUNNING');
+    let activeTab = $state('preview'); // 'preview', 'analysis'
 
-    // Filter text based on selected sections
+    let currentDoc = $derived($lighthouseResults.history.find(d => d.id === $lighthouseResults.currentId));
+    let results = $derived(currentDoc?.analysis);
+    let sections = $derived(currentDoc?.sections || []);
+    let isSanitized = $derived(currentDoc?.isSanitized);
+    let isEngineRunning = $derived($lighthouseStatus.stage === 'RUNNING' || $lighthouseSettings.useMockData);
+
     let selectedText = $derived(
         sections
             .filter(s => s.selected)
@@ -21,12 +20,12 @@
     async function triggerAnalysis() {
         if (selectedText) {
             await lighthouseActions.analyzeText(selectedText);
+            activeTab = 'analysis';
         }
     }
 
     function highlightRedacted(content) {
         if (!content) return "";
-        // Escape HTML for security
         let escaped = content
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -34,18 +33,12 @@
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
         
-        // Highlight anything in brackets like [NAME], [LOCATION]
         const placeholders = /\[(NAME|LOCATION|EMAIL|PHONE|POSTAL_CODE|IP_ADDRESS|URL|SOCIAL_LINK|PERSON|GPE|LOC|FAC)\]/g;
         return escaped.replace(placeholders, '<span class="pii-highlight">$&</span>');
     }
 
     const sectionColors = [
-        '#e3b878', // button-color (gold)
-        '#1b3350', // blue-color-main
-        '#afb6a6', // button-color-green
-        '#388e3c', // success-color
-        '#f57c00', // warning-color
-        '#d32f2f'  // error-color
+        '#e3b878', '#1b3350', '#afb6a6', '#388e3c', '#f57c00', '#d32f2f'
     ];
 
     function getSectionBorder(index) {
@@ -61,109 +54,120 @@
         </div>
     {/if}
 
-    {#if sections.length > 0 && !results}
-        <div class="card analysis-trigger" in:fade>
-            <h4>Analysis Readiness</h4>
-            <p>
-                Selected {sections.filter(s => s.selected).length} of {sections.length} sections 
-                ({selectedText.length} characters).
-            </p>
-            {#if !isEngineRunning}
-                <p class="warning-text">Lighthouse engine must be RUNNING to perform AI analysis.</p>
-            {/if}
-            <button 
-                class="btn-primary" 
-                onclick={triggerAnalysis}
-                disabled={!isEngineRunning || $lighthouseResults.loading || selectedText.length === 0}
-            >
-                {isEngineRunning ? 'Run AI Analysis' : 'Engine Inactive'}
-            </button>
-        </div>
-    {/if}
-
-    {#if results}
-        <div class="analysis-grid" in:slide>
-            <div class="card skills-card">
-                <h3>Extracted Skills</h3>
-                <div class="skills-list">
-                    {#if results.extracted_skills}
-                        {#each results.extracted_skills as skill}
-                            <span class="skill-tag">{skill}</span>
-                        {/each}
-                    {:else}
-                        <p>No specific skills identified.</p>
-                    {/if}
-                </div>
+    {#if currentDoc}
+        <div class="doc-header">
+            <div class="doc-info">
+                <h2>{currentDoc.name}</h2>
+                <span class="timestamp">{new Date(currentDoc.timestamp).toLocaleString()}</span>
             </div>
+            <div class="tab-switcher">
+                <button 
+                    class:active={activeTab === 'preview'} 
+                    onclick={() => activeTab = 'preview'}
+                >
+                    Document Preview
+                </button>
+                <button 
+                    class:active={activeTab === 'analysis'} 
+                    disabled={!results}
+                    onclick={() => activeTab = 'analysis'}
+                >
+                    AI Analysis
+                </button>
+            </div>
+        </div>
 
-            <div class="card jobs-card">
-                <h3>Top Job Matches</h3>
-                <div class="jobs-list">
-                    {#if results.top_jobs}
-                        {#each results.top_jobs as job}
-                            <div class="job-item">
-                                <strong>{job.title}</strong>
-                                <span class="score">Match: {Math.round(job.score * 100)}%</span>
+        {#if activeTab === 'preview'}
+            <div class="tab-content" in:fade>
+                <div class="preview-controls">
+                    <div class="selection-summary">
+                        <strong>{sections.filter(s => s.selected).length}</strong> of {sections.length} sections selected
+                    </div>
+                    
+                    <div class="action-group">
+                        {#if !isEngineRunning}
+                            <span class="warning-tag">Engine Offline</span>
+                        {/if}
+                        <button 
+                            class="btn-primary btn-sm" 
+                            onclick={triggerAnalysis}
+                            disabled={!isEngineRunning || $lighthouseResults.loading || selectedText.length === 0}
+                        >
+                            {results ? 'Re-Run Analysis' : 'Run AI Analysis'}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sections-container">
+                    {#each sections as section, i}
+                        <div 
+                            class="section-block" 
+                            class:unselected={!section.selected}
+                            style="border-left: 4px solid {getSectionBorder(i)}"
+                        >
+                            <div class="section-header">
+                                <label class="checkbox-container">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={section.selected} 
+                                        onchange={() => lighthouseActions.toggleSection(i)}
+                                    />
+                                    <span class="section-title">{section.title}</span>
+                                </label>
                             </div>
-                        {/each}
-                    {:else}
-                        <p>No direct matches found.</p>
-                    {/if}
+                            <div class="section-content">
+                                {@html highlightRedacted(section.content)}
+                            </div>
+                        </div>
+                    {/each}
                 </div>
             </div>
-
-            <div class="card recommendations-card">
-                <h3>Recommendations</h3>
-                {#if results.recommendations && results.recommendations.length > 0}
-                    <ul class="recommendations">
-                        {#each results.recommendations as rec}
-                            <li>{@html rec}</li>
-                        {/each}
-                    </ul>
-                {:else}
-                    <p>Profile looks solid!</p>
-                {/if}
-            </div>
-
-            <button class="btn-accent w-full" onclick={() => lighthouseResults.update(r => ({...r, analysis: null}))}>
-                Back to Document
-            </button>
-        </div>
-    {/if}
-
-    {#if sections.length > 0 && !results}
-        <div class="card text-preview">
-            <div class="preview-header">
-                <h3>Document Partitions</h3>
-                <p class="instruction">Select the sections you want to include in the AI analysis.</p>
-                {#if isSanitized}
-                    <span class="sanitized-badge">Sanitized</span>
-                {/if}
-            </div>
-            
-            <div class="sections-container">
-                {#each sections as section, i}
-                    <div 
-                        class="section-block" 
-                        class:unselected={!section.selected}
-                        style="border-left: 4px solid {getSectionBorder(i)}"
-                    >
-                        <div class="section-header">
-                            <label class="checkbox-container">
-                                <input 
-                                    type="checkbox" 
-                                    checked={section.selected} 
-                                    onchange={() => lighthouseActions.toggleSection(i)}
-                                />
-                                <span class="section-title">{section.title}</span>
-                            </label>
+        {:else if activeTab === 'analysis' && results}
+            <div class="tab-content analysis-tab" in:fade>
+                <div class="analysis-grid">
+                    <div class="analysis-column">
+                        <div class="card compact-card">
+                            <h3>Extracted Skills</h3>
+                            <div class="skills-list">
+                                {#each results.extracted_skills as skill}
+                                    <span class="skill-tag">{skill}</span>
+                                {/each}
+                            </div>
                         </div>
-                        <div class="section-content">
-                            {@html highlightRedacted(section.content)}
+
+                        <div class="card compact-card">
+                            <h3>Top Job Matches</h3>
+                            <div class="jobs-list">
+                                {#each results.top_jobs as job}
+                                    <div class="job-item">
+                                        <strong>{job.title}</strong>
+                                        <span class="score">{Math.round(job.score * 100)}%</span>
+                                    </div>
+                                {/each}
+                            </div>
                         </div>
                     </div>
-                {/each}
+
+                    <div class="analysis-column main-col">
+                        <div class="card recommendations-card">
+                            <h3>AI Recommendations</h3>
+                            <div class="scroll-box">
+                                <ul class="recommendations">
+                                    {#each results.recommendations as rec}
+                                        <li>{@html rec}</li>
+                                    {/each}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+        {/if}
+    {:else}
+        <div class="empty-state">
+            <div class="empty-icon">📄</div>
+            <h3>No Document Selected</h3>
+            <p>Upload a resume or select one from your history to begin.</p>
         </div>
     {/if}
 </div>
@@ -171,171 +175,167 @@
 <style>
     .results-layout {
         position: relative;
-        min-height: 200px;
+        min-height: 400px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
     }
+
+    .doc-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fafafa;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .doc-info h2 { margin: 0; font-size: 1.25rem; color: var(--blue-color-main); }
+    .doc-info .timestamp { font-size: 0.75rem; color: #888; }
+
+    .tab-switcher {
+        display: flex;
+        background: #eee;
+        padding: 0.25rem;
+        border-radius: 6px;
+        gap: 0.25rem;
+    }
+
+    .tab-switcher button {
+        background: transparent;
+        color: #666;
+        padding: 0.4rem 1rem;
+        font-size: 0.85rem;
+        border-radius: 4px;
+        text-transform: none;
+    }
+
+    .tab-switcher button.active {
+        background: white;
+        color: var(--blue-color-main);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .tab-content {
+        padding: 1.5rem;
+        flex: 1;
+        overflow-y: auto;
+        max-height: calc(100vh - 250px);
+    }
+
+    .preview-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px dashed #ddd;
+    }
+
+    .selection-summary { font-size: 0.9rem; color: #555; }
+    
+    .action-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .warning-tag {
+        font-size: 0.7rem;
+        color: var(--error-color);
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .btn-sm { padding: 0.4rem 1rem; font-size: 0.8rem; }
+
+    .sections-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .section-block {
+        background: #fdfdfd;
+        padding: 1rem;
+        border-radius: 0 4px 4px 0;
+        border: 1px solid #eee;
+        border-left-width: 4px;
+    }
+
+    .section-block.unselected { opacity: 0.4; }
+
+    .section-title { font-weight: 700; font-size: 0.85rem; color: var(--blue-color-main); }
+    .section-content { font-size: 0.85rem; color: #555; white-space: pre-wrap; margin-top: 0.5rem; }
+
+    .analysis-grid {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .analysis-column { display: flex; flex-direction: column; gap: 1.5rem; }
+
+    .compact-card { padding: 1rem; margin-bottom: 0; border: 1px solid #eee; }
+    .compact-card h3 { font-size: 0.9rem; margin-top: 0; margin-bottom: 0.8rem; border-bottom: 1px solid #eee; padding-bottom: 0.4rem; }
+
+    .skills-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .skill-tag { background: var(--button-color-green); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; }
+
+    .job-item { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.3rem 0; border-bottom: 1px solid #f5f5f5; }
+    .score { color: var(--success-color); font-weight: 700; }
+
+    .recommendations-card { height: 100%; display: flex; flex-direction: column; }
+    .scroll-box { max-height: 500px; overflow-y: auto; padding-right: 0.5rem; }
+
+    .recommendations { padding-left: 1.2rem; }
+    .recommendations li { margin-bottom: 0.8rem; font-size: 0.9rem; line-height: 1.5; color: #444; }
+
+    .empty-state {
+        padding: 5rem 2rem;
+        text-align: center;
+        color: #888;
+    }
+
+    .empty-icon { font-size: 4rem; margin-bottom: 1rem; opacity: 0.3; }
 
     .loading-overlay {
         position: absolute;
         top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(255,255,243,0.8);
+        background: rgba(255,255,243,0.9);
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        z-index: 10;
+        z-index: 100;
         border-radius: 8px;
     }
 
     .spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid var(--border-color);
+        width: 40px; height: 40px;
+        border: 4px solid #eee;
         border-top: 4px solid var(--blue-color-main);
         border-radius: 50%;
         animation: spin 1s linear infinite;
         margin-bottom: 1rem;
     }
 
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .analysis-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .skills-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .skill-tag {
-        background-color: var(--button-color-green);
-        color: var(--text-color-main);
-        padding: 0.2rem 0.6rem;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: 500;
-    }
-
-    .job-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #eee;
-    }
-
-    .score {
-        color: var(--success-color);
-        font-weight: 600;
-        font-size: 0.9rem;
-    }
-
-    .sections-container {
-        margin-top: 0.5rem;
-    }
-
-    .section-block {
-        background: #fdfdfd;
-        margin-bottom: 1rem;
-        padding: 1rem;
-        border-radius: 0 4px 4px 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        transition: opacity 0.2s, filter 0.2s;
-    }
-
-    .section-block.unselected {
-        opacity: 0.5;
-        filter: grayscale(0.5);
-    }
-
-    .section-header {
-        margin-bottom: 0.5rem;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 0.3rem;
-    }
-
-    .section-title {
-        font-weight: 700;
-        font-family: 'Outfit', sans-serif;
-        text-transform: uppercase;
-        font-size: 0.9rem;
-        color: var(--blue-color-main);
-    }
-
-    .section-content {
-        font-size: 0.85rem;
-        color: #555;
-        white-space: pre-wrap;
-        max-height: 200px;
-        overflow-y: auto;
-    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
 
     :global(.pii-highlight) {
         background-color: var(--button-color);
-        color: var(--text-color-main);
         padding: 0 2px;
         border-radius: 2px;
         font-weight: 600;
     }
 
-    .error-card {
-        border-left: 4px solid var(--error-color);
-        color: var(--error-color);
-    }
+    .checkbox-container { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
 
-    .analysis-trigger {
-        text-align: center;
-        border: 2px dashed var(--blue-color-main);
-    }
-
-    .warning-text {
-        color: var(--warning-color);
-        font-size: 0.85rem;
-        margin-bottom: 1rem;
-        font-weight: 600;
-    }
-
-    .preview-header {
-        display: flex;
-        flex-direction: column;
-        margin-bottom: 1.5rem;
-    }
-
-    .preview-header h3 { margin: 0; }
-    .instruction { font-size: 0.9rem; color: #666; margin: 0.2rem 0; }
-
-    .sanitized-badge {
-        align-self: flex-start;
-        margin-top: 0.5rem;
-        background: #fff3e0;
-        color: #ef6c00;
-        font-size: 0.75rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
-        font-weight: 700;
-        text-transform: uppercase;
-        border: 1px solid #ffe0b2;
-    }
-
-    .checkbox-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-    }
-
-    .w-full { width: 100%; }
-
-    ul.recommendations {
-        padding-left: 1.2rem;
-    }
-    
-    ul.recommendations li {
-        margin-bottom: 0.5rem;
+    @media (max-width: 1000px) {
+        .analysis-grid { grid-template-columns: 1fr; }
     }
 </style>
