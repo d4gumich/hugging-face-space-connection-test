@@ -6,12 +6,10 @@
 
     onMount(() => {
         lighthouseActions.fetchStatus();
-        // Poll status every 10 seconds
-        interval = setInterval(lighthouseActions.fetchStatus, 10000);
     });
 
     onDestroy(() => {
-        if (interval) clearInterval(interval);
+        // No interval to clear
     });
 
     function getStatusClass(stage) {

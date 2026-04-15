@@ -14,6 +14,7 @@ export const lighthouseStatus = writable({
 export const lighthouseResults = writable({
     extractedText: null,
     analysis: null, // { extracted_skills, top_jobs, recommendations }
+    isSanitized: false,
     loading: false,
     error: null
 });
@@ -67,7 +68,7 @@ export const lighthouseActions = {
     },
 
     async uploadPdf(file, sanitize = false) {
-        lighthouseResults.update(r => ({ ...r, loading: true, error: null }));
+        lighthouseResults.update(r => ({ ...r, loading: true, error: null, isSanitized: false }));
         const formData = new FormData();
         formData.append('file', file);
         formData.append('sanitize', sanitize);
@@ -80,6 +81,7 @@ export const lighthouseActions = {
             lighthouseResults.update(r => ({ 
                 ...r, 
                 extractedText: result.extracted_text, 
+                isSanitized: sanitize,
                 loading: false 
             }));
             return result;
@@ -100,6 +102,7 @@ export const lighthouseActions = {
             lighthouseResults.update(r => ({ 
                 ...r, 
                 analysis: result, 
+                isSanitized: sanitize || get(lighthouseResults).isSanitized,
                 loading: false 
             }));
             return result;

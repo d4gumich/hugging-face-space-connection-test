@@ -2,9 +2,10 @@
     import LighthouseResults from "$lib/components/lighthouse_results.svelte";
     import LighthouseControl from "$lib/components/LighthouseControl.svelte";
     import { lighthouseResults, lighthouseActions } from "$lib/lighthouseStore.js";
-    import logo from "../../static/D4G-Logo-2.png";
+    import logo from "$lib/assets/D4G-Logo-2.png";
 
     let file = $state(null);
+    let shouldSanitize = $state(false);
 
     function handleFileChange(event) {
         file = event.target.files[0];
@@ -16,7 +17,7 @@
             return;
         }
         try {
-            await lighthouseActions.uploadPdf(file);
+            await lighthouseActions.uploadPdf(file, shouldSanitize);
         } catch (err) {
             alert("Upload failed. Ensure the Lighthouse engine is RUNNING.");
         }
@@ -41,6 +42,14 @@
             <div class="card upload-card">
                 <h3>Upload Document</h3>
                 <p>Analyze your resume or portfolio PDF.</p>
+                
+                <div class="file-options">
+                    <label class="checkbox-container">
+                        <input type="checkbox" bind:checked={shouldSanitize} />
+                        Sanitize PDF (Remove PII)
+                    </label>
+                </div>
+
                 <div class="file-input-group">
                     <input 
                         type="file" 
@@ -117,6 +126,21 @@
 
     .upload-card h3 { margin-top: 0; }
     
+    .file-options {
+        margin: 1rem 0;
+        padding: 0.5rem;
+        background: #f9f9f9;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .checkbox-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
     .w-full { width: 100%; }
 
     .file-input-group {

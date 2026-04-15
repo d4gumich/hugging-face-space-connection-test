@@ -1,5 +1,5 @@
 <script>
-    import { lighthouseResults, lighthouseActions } from '../lighthouseStore.js';
+    import { lighthouseResults, lighthouseActions, lighthouseStatus } from '../lighthouseStore.js';
     import { fade, slide } from 'svelte/transition';
 
     let { extracted_text } = $props(); // Backward compatibility if needed
@@ -7,11 +7,28 @@
     // Use $derived for reactive values from stores in Svelte 5
     let results = $derived($lighthouseResults.analysis);
     let text = $derived($lighthouseResults.extractedText || extracted_text);
+    let isSanitized = $derived($lighthouseResults.isSanitized);
+    let isEngineRunning = $derived($lighthouseStatus.stage === 'RUNNING');
 
     async function triggerAnalysis() {
         if (text) {
             await lighthouseActions.analyzeText(text);
         }
+    }
+
+    function highlightRedacted(content) {
+        if (!content) return "";
+        // Escape HTML for security
+        let escaped = content
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        
+        // Highlight anything in brackets like [NAME], [LOCATION]
+        const placeholders = /\[(NAME|LOCATION|EMAIL|PHONE|POSTAL_CODE|IP_ADDRESS|URL|SOCIAL_LINK|PERSON|GPE|LOC|FAC)\]/g;
+        return escaped.replace(placeholders, '<span class="pii-highlight">$&</span>');
     }
 </script>
 
@@ -27,8 +44,15 @@
         <div class="card analysis-trigger" in:fade>
             <h4>Text Extracted Successfully</h4>
             <p>Found {text.length} characters of content. Analysis is ready.</p>
-            <button class="btn-primary" onclick={triggerAnalysis}>
-                Run AI Analysis
+            {#if !isEngineRunning}
+                <p class="warning-text">Lighthouse engine must be RUNNING to perform AI analysis.</p>
+            {/if}
+            <button 
+                class="btn-primary" 
+                onclick={triggerAnalysis}
+                disabled={!isEngineRunning || $lighthouseResults.loading}
+            >
+                {isEngineRunning ? 'Run AI Analysis' : 'Engine Inactive'}
             </button>
         </div>
     {/if}
@@ -81,9 +105,14 @@
 
     {#if text && !results}
         <div class="card text-preview">
-            <h3>Extracted Text Preview</h3>
+            <div class="preview-header">
+                <h3>Extracted Text Preview</h3>
+                {#if isSanitized}
+                    <span class="sanitized-badge">Sanitized</span>
+                {/if}
+            </div>
             <div class="text-content">
-                {text.substring(0, 1000)}{text.length > 1000 ? '...' : ''}
+                {@html highlightRedacted(text)}
             </div>
         </div>
     {/if}
@@ -173,6 +202,14 @@
         border-radius: 4px;
     }
 
+    :global(.pii-highlight) {
+        background-color: var(--button-color);
+        color: var(--text-color-main);
+        padding: 0 2px;
+        border-radius: 2px;
+        font-weight: 600;
+    }
+
     .error-card {
         border-left: 4px solid var(--error-color);
         color: var(--error-color);
@@ -181,6 +218,33 @@
     .analysis-trigger {
         text-align: center;
         border: 2px dashed var(--blue-color-main);
+    }
+
+    .warning-text {
+        color: var(--warning-color);
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .preview-header h3 { margin: 0; }
+
+    .sanitized-badge {
+        background: #fff3e0;
+        color: #ef6c00;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 700;
+        text-transform: uppercase;
+        border: 1px solid #ffe0b2;
     }
 
     ul.recommendations {
