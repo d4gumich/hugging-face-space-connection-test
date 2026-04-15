@@ -33,9 +33,6 @@
         {#if $lighthouseStatus.message}
             <p class="message">{$lighthouseStatus.message}</p>
         {/if}
-        {#if $lighthouseStatus.error}
-            <p class="error">{$lighthouseStatus.error}</p>
-        {/if}
     </div>
 
     <div class="actions">

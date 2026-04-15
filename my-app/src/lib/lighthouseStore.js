@@ -14,6 +14,7 @@ export const lighthouseStatus = writable({
 
 export const lighthouseResults = writable({
     extractedText: null,
+    sections: [], // Array of { title: string, content: string, selected: boolean }
     analysis: null, // { extracted_skills, top_jobs, recommendations }
     isSanitized: false,
     loading: false,
@@ -84,7 +85,7 @@ export const lighthouseActions = {
     },
 
     async uploadPdf(file, sanitize = false) {
-        lighthouseResults.update(r => ({ ...r, loading: true, error: null, isSanitized: false }));
+        lighthouseResults.update(r => ({ ...r, loading: true, error: null, isSanitized: false, sections: [] }));
         const formData = new FormData();
         formData.append('file', file);
         formData.append('sanitize', sanitize);
@@ -94,9 +95,14 @@ export const lighthouseActions = {
                 method: 'POST',
                 body: formData
             });
+            
+            const rawText = result.extracted_text;
+            const sections = this.splitIntoSections(rawText);
+
             lighthouseResults.update(r => ({ 
                 ...r, 
-                extractedText: result.extracted_text, 
+                extractedText: rawText,
+                sections: sections,
                 isSanitized: sanitize,
                 loading: false 
             }));
@@ -105,6 +111,63 @@ export const lighthouseActions = {
             lighthouseResults.update(r => ({ ...r, loading: false, error: err.message }));
             throw err;
         }
+    },
+
+    splitIntoSections(text) {
+        if (!text) return [];
+        
+        // Regex to identify common resume headers
+        const headerPattern = /^([A-Z][A-Z\s]{2,20}|Professional Summary|Work Experience|Employment History|Technical Skills|Academic Background|Core Competencies|Education|Skills|Projects|Certifications|Awards|Summary|Experience):?\s*$/gm;
+        
+        const sections = [];
+        let match;
+        const matches = [];
+        
+        // Reset lastIndex for the regex
+        headerPattern.lastIndex = 0;
+        
+        while ((match = headerPattern.exec(text)) !== null) {
+            matches.push({
+                index: match.index,
+                title: match[1].trim(),
+                length: match[0].length
+            });
+        }
+
+        if (matches.length === 0) {
+            return [{ title: 'Main Content', content: text, selected: true }];
+        }
+
+        // Handle text before the first header (usually contact info/header)
+        if (matches[0].index > 0) {
+            sections.push({
+                title: 'Header / Contact',
+                content: text.substring(0, matches[0].index).trim(),
+                selected: true
+            });
+        }
+
+        for (let i = 0; i < matches.length; i++) {
+            const start = matches[i].index + matches[i].length;
+            const end = i < matches.length - 1 ? matches[i + 1].index : text.length;
+            sections.push({
+                title: matches[i].title,
+                content: text.substring(start, end).trim(),
+                selected: true
+            });
+        }
+
+        return sections.filter(s => s.content.length > 0);
+    },
+
+    toggleSection(index) {
+        lighthouseResults.update(r => {
+            const newSections = [...r.sections];
+            if (newSections[index]) {
+                newSections[index] = { ...newSections[index], selected: !newSections[index].selected };
+            }
+            return { ...r, sections: newSections };
+        });
     },
 
     async analyzeText(text, sanitize = false) {

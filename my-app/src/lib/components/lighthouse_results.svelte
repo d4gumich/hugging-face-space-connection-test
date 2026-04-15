@@ -6,13 +6,21 @@
     
     // Use $derived for reactive values from stores in Svelte 5
     let results = $derived($lighthouseResults.analysis);
-    let text = $derived($lighthouseResults.extractedText || extracted_text);
+    let sections = $derived($lighthouseResults.sections);
     let isSanitized = $derived($lighthouseResults.isSanitized);
     let isEngineRunning = $derived($lighthouseStatus.stage === 'RUNNING');
 
+    // Filter text based on selected sections
+    let selectedText = $derived(
+        sections
+            .filter(s => s.selected)
+            .map(s => s.content)
+            .join('\n\n')
+    );
+
     async function triggerAnalysis() {
-        if (text) {
-            await lighthouseActions.analyzeText(text);
+        if (selectedText) {
+            await lighthouseActions.analyzeText(selectedText);
         }
     }
 
@@ -30,6 +38,19 @@
         const placeholders = /\[(NAME|LOCATION|EMAIL|PHONE|POSTAL_CODE|IP_ADDRESS|URL|SOCIAL_LINK|PERSON|GPE|LOC|FAC)\]/g;
         return escaped.replace(placeholders, '<span class="pii-highlight">$&</span>');
     }
+
+    const sectionColors = [
+        '#e3b878', // button-color (gold)
+        '#1b3350', // blue-color-main
+        '#afb6a6', // button-color-green
+        '#388e3c', // success-color
+        '#f57c00', // warning-color
+        '#d32f2f'  // error-color
+    ];
+
+    function getSectionBorder(index) {
+        return sectionColors[index % sectionColors.length];
+    }
 </script>
 
 <div class="results-layout">
@@ -40,17 +61,20 @@
         </div>
     {/if}
 
-    {#if text && !results}
+    {#if sections.length > 0 && !results}
         <div class="card analysis-trigger" in:fade>
-            <h4>Text Extracted Successfully</h4>
-            <p>Found {text.length} characters of content. Analysis is ready.</p>
+            <h4>Analysis Readiness</h4>
+            <p>
+                Selected {sections.filter(s => s.selected).length} of {sections.length} sections 
+                ({selectedText.length} characters).
+            </p>
             {#if !isEngineRunning}
                 <p class="warning-text">Lighthouse engine must be RUNNING to perform AI analysis.</p>
             {/if}
             <button 
                 class="btn-primary" 
                 onclick={triggerAnalysis}
-                disabled={!isEngineRunning || $lighthouseResults.loading}
+                disabled={!isEngineRunning || $lighthouseResults.loading || selectedText.length === 0}
             >
                 {isEngineRunning ? 'Run AI Analysis' : 'Engine Inactive'}
             </button>
@@ -100,26 +124,46 @@
                     <p>Profile looks solid!</p>
                 {/if}
             </div>
+
+            <button class="btn-accent w-full" onclick={() => lighthouseResults.update(r => ({...r, analysis: null}))}>
+                Back to Document
+            </button>
         </div>
     {/if}
 
-    {#if text && !results}
+    {#if sections.length > 0 && !results}
         <div class="card text-preview">
             <div class="preview-header">
-                <h3>Extracted Text Preview</h3>
+                <h3>Document Partitions</h3>
+                <p class="instruction">Select the sections you want to include in the AI analysis.</p>
                 {#if isSanitized}
                     <span class="sanitized-badge">Sanitized</span>
                 {/if}
             </div>
-            <div class="text-content">
-                {@html highlightRedacted(text)}
+            
+            <div class="sections-container">
+                {#each sections as section, i}
+                    <div 
+                        class="section-block" 
+                        class:unselected={!section.selected}
+                        style="border-left: 4px solid {getSectionBorder(i)}"
+                    >
+                        <div class="section-header">
+                            <label class="checkbox-container">
+                                <input 
+                                    type="checkbox" 
+                                    checked={section.selected} 
+                                    onchange={() => lighthouseActions.toggleSection(i)}
+                                />
+                                <span class="section-title">{section.title}</span>
+                            </label>
+                        </div>
+                        <div class="section-content">
+                            {@html highlightRedacted(section.content)}
+                        </div>
+                    </div>
+                {/each}
             </div>
-        </div>
-    {/if}
-
-    {#if $lighthouseResults.error}
-        <div class="card error-card" in:fade>
-            <p class="error">{$lighthouseResults.error}</p>
         </div>
     {/if}
 </div>
@@ -191,15 +235,44 @@
         font-size: 0.9rem;
     }
 
-    .text-content {
+    .sections-container {
+        margin-top: 0.5rem;
+    }
+
+    .section-block {
+        background: #fdfdfd;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border-radius: 0 4px 4px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        transition: opacity 0.2s, filter 0.2s;
+    }
+
+    .section-block.unselected {
+        opacity: 0.5;
+        filter: grayscale(0.5);
+    }
+
+    .section-header {
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.3rem;
+    }
+
+    .section-title {
+        font-weight: 700;
+        font-family: 'Outfit', sans-serif;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        color: var(--blue-color-main);
+    }
+
+    .section-content {
         font-size: 0.85rem;
         color: #555;
         white-space: pre-wrap;
-        max-height: 300px;
+        max-height: 200px;
         overflow-y: auto;
-        background: #f9f9f9;
-        padding: 1rem;
-        border-radius: 4px;
     }
 
     :global(.pii-highlight) {
@@ -229,14 +302,16 @@
 
     .preview-header {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
+        flex-direction: column;
+        margin-bottom: 1.5rem;
     }
 
     .preview-header h3 { margin: 0; }
+    .instruction { font-size: 0.9rem; color: #666; margin: 0.2rem 0; }
 
     .sanitized-badge {
+        align-self: flex-start;
+        margin-top: 0.5rem;
         background: #fff3e0;
         color: #ef6c00;
         font-size: 0.75rem;
@@ -246,6 +321,15 @@
         text-transform: uppercase;
         border: 1px solid #ffe0b2;
     }
+
+    .checkbox-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .w-full { width: 100%; }
 
     ul.recommendations {
         padding-left: 1.2rem;

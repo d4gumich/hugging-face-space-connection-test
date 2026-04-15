@@ -87,6 +87,9 @@
         border-bottom: 1px solid var(--border-color);
         padding: 1rem 0;
         margin-bottom: 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
     }
 
     .nav-content {
@@ -125,6 +128,9 @@
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
+        position: sticky;
+        top: 100px;
+        height: fit-content;
     }
 
     .upload-card h3 { margin-top: 0; }
