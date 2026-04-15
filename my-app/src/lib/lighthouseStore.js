@@ -22,6 +22,20 @@ export const lighthouseResults = writable({
     error: null
 });
 
+function formatError(err) {
+    const message = err.message || String(err);
+    const isHFError = message.includes('MaxRetryError') || 
+                     message.includes('502') || 
+                     message.includes('Bad Gateway') || 
+                     message.includes('HTTPSConnectionPool') ||
+                     message.includes('ProxyError');
+    
+    if (isHFError) {
+        return `Hugging Face Service Error: The engine is currently unreachable (Bad Gateway/Max Retries). This usually happens during a cold start or high load. Please wait 1-2 minutes and try again. Original error: ${message}`;
+    }
+    return message;
+}
+
 async function apiRequest(path, options = {}) {
     try {
         const response = await fetch(`${HOST_URL}${BASE_PATH}${path}`, options);
@@ -68,7 +82,7 @@ export const lighthouseActions = {
                 ...s, 
                 loading: false, 
                 isRefreshing: false, 
-                error: err.message 
+                error: formatError(err)
             }));
         }
     },
@@ -77,6 +91,8 @@ export const lighthouseActions = {
         lighthouseStatus.update(s => ({ ...s, loading: true, requestedHardware: 'T4 Small' }));
         try {
             const status = await apiRequest('/wakeup', { method: 'POST' });
+            // Don't immediately clear requestedHardware here, let fetchStatus do it 
+            // when the hardware actually shows up in the metadata
             lighthouseStatus.update(s => ({ 
                 ...status, 
                 loading: false, 
@@ -84,7 +100,12 @@ export const lighthouseActions = {
             }));
             return status;
         } catch (err) {
-            lighthouseStatus.update(s => ({ ...s, loading: false, error: err.message, requestedHardware: null }));
+            lighthouseStatus.update(s => ({ 
+                ...s, 
+                loading: false, 
+                error: formatError(err),
+                requestedHardware: null 
+            }));
         }
     },
 
@@ -101,7 +122,11 @@ export const lighthouseActions = {
             });
             return status;
         } catch (err) {
-            lighthouseStatus.update(s => ({ ...s, loading: false, error: err.message }));
+            lighthouseStatus.update(s => ({ 
+                ...s, 
+                loading: false, 
+                error: formatError(err)
+            }));
         }
     },
 
@@ -129,7 +154,7 @@ export const lighthouseActions = {
             }));
             return result;
         } catch (err) {
-            lighthouseResults.update(r => ({ ...r, loading: false, error: err.message }));
+            lighthouseResults.update(r => ({ ...r, loading: false, error: formatError(err) }));
             throw err;
         }
     },
@@ -207,7 +232,7 @@ export const lighthouseActions = {
             }));
             return result;
         } catch (err) {
-            lighthouseResults.update(r => ({ ...r, loading: false, error: err.message }));
+            lighthouseResults.update(r => ({ ...r, loading: false, error: formatError(err) }));
             throw err;
         }
     }
