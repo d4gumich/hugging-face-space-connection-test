@@ -13,9 +13,10 @@
     });
 
     function getStatusClass(stage) {
-        if (stage === 'RUNNING') return 'status-active';
-        if (stage === 'STOPPED' || stage === 'PAUSED') return 'status-inactive';
-        if (stage === 'BUILDING' || stage === 'STARTING') return 'status-loading';
+        const s = stage?.toUpperCase() || '';
+        if (s === 'RUNNING') return 'status-active';
+        if (s === 'STOPPED' || s === 'PAUSED' || s === 'SLEEPING') return 'status-inactive';
+        if (s.includes('BUILDING') || s.includes('STARTING') || s.includes('INITIALIZING') || s.includes('RUNNING_WITH_DEVIATIONS')) return 'status-loading';
         return '';
     }
 </script>
