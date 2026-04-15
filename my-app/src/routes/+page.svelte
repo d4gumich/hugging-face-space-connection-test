@@ -36,16 +36,6 @@
                 <p>AI Profile Analysis</p>
             </div>
         </div>
-
-        <div class="nav-actions">
-            <div class="mock-toggle">
-                <label class="checkbox-container">
-                    <input type="checkbox" bind:checked={$lighthouseSettings.useMockData} />
-                    <span class="checkmark"></span>
-                    <span class="label-text">Mock Mode</span>
-                </label>
-            </div>
-        </div>
     </div>
 </nav>
 
@@ -55,12 +45,14 @@
             <LighthouseControl />
             
             <div class="card upload-card">
-                <h3>New Analysis</h3>
+                <h3>Upload Document</h3>
+                <p>Analyze your PDF resume</p>
+                
                 <div class="file-options">
                     <label class="checkbox-container">
                         <input type="checkbox" bind:checked={shouldSanitize} />
                         <span class="checkmark"></span>
-                        Sanitize PDF
+                        Sanitize PDF (Remove PII)
                     </label>
                 </div>
 
@@ -78,10 +70,11 @@
                 </div>
                 <button 
                     class="btn-primary w-full" 
+                    class:btn-loading={$lighthouseResults.loading}
                     onclick={handleUpload}
                     disabled={!file || $lighthouseResults.loading}
                 >
-                    {$lighthouseResults.loading ? "Uploading..." : "Upload & Partition"}
+                    {$lighthouseResults.loading ? "UPLOADING..." : "UPLOAD & PARTITION"}
                 </button>
             </div>
 
@@ -140,15 +133,6 @@
     .nav-titles h1 { margin: 0; font-size: 1.25rem; line-height: 1; }
     .nav-titles p { margin: 0.1rem 0 0 0; font-size: 0.8rem; color: #666; }
 
-    .mock-toggle {
-        background: #f0f0f0;
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #666;
-    }
-
     .dashboard-grid {
         display: grid;
         grid-template-columns: 320px 1fr;
@@ -174,20 +158,38 @@
 
     .upload-card h3, .history-card h3 { margin-top: 0; font-size: 1rem; margin-bottom: 1rem; }
     
-    .file-options { margin-bottom: 1rem; font-size: 0.85rem; }
+    .file-options { 
+        margin-bottom: 1rem; 
+        font-size: 0.85rem; 
+        background: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 6px;
+    }
+
+    .file-input { display: none; }
 
     .file-label {
         display: block;
-        padding: 0.6rem;
-        border: 2px dashed var(--border-color);
-        border-radius: 4px;
+        padding: 0.8rem;
+        border: 2px dashed #ccc;
+        background: #fafafa;
+        border-radius: 6px;
         text-align: center;
         cursor: pointer;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #666;
         margin-bottom: 1rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        transition: all 0.2s;
+    }
+
+    .file-label:hover {
+        border-color: var(--blue-color-main);
+        background: #f0f4f8;
+        color: var(--blue-color-main);
     }
 
     .history-list { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -229,6 +231,11 @@
     }
 
     .delete-doc:hover { color: var(--error-color); }
+
+    .btn-loading {
+        background-color: #778899 !important;
+        color: white !important;
+    }
 
     .checkbox-container { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
     .label-text { white-space: nowrap; }

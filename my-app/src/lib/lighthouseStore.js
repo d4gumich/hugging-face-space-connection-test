@@ -31,9 +31,11 @@ export const lighthouseStatus = writable({
     error: null
 });
 
-// Settings Store (for Mock Mode)
+// Settings Store (initialized from Environment Variable)
+const isMockRequested = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
 export const lighthouseSettings = writable({
-    useMockData: false
+    useMockData: isMockRequested
 });
 
 export const lighthouseResults = writable({
