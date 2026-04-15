@@ -2,7 +2,7 @@
     import LighthouseResults from "../lib/components/lighthouse_results.svelte";
 
     // Change host_url based on where backend is running (i.e. local vs pythonanywhere)
-    const host_url = 'http://127.0.0.1:5000/';
+    const host_url = 'http://127.0.0.1:8000/';
     const base_path = 'api/v1/products/';
     // If needed, update the below lighthouse path depending on what backend API will
     // be exposed for ingesting pdf
