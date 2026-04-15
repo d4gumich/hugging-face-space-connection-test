@@ -114,10 +114,10 @@
 
             <div class="card recommendations-card">
                 <h3>Recommendations</h3>
-                {#if results.recommendations}
+                {#if results.recommendations && results.recommendations.length > 0}
                     <ul class="recommendations">
                         {#each results.recommendations as rec}
-                            <li>{rec}</li>
+                            <li>{@html rec}</li>
                         {/each}
                     </ul>
                 {:else}

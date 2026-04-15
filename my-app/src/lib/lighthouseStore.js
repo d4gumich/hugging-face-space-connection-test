@@ -224,13 +224,56 @@ export const lighthouseActions = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ resume_text: text, sanitize })
             });
+
+            // Helper to ensure we have an array of strings
+            const ensureArray = (input) => {
+                if (!input) return [];
+                if (Array.isArray(input)) return input.map(item => typeof item === 'object' ? JSON.stringify(item) : String(item));
+                if (typeof input === 'string') {
+                    try {
+                        const parsed = JSON.parse(input);
+                        if (Array.isArray(parsed)) return parsed.map(String);
+                    } catch (e) {
+                        if (input.includes('\n')) return input.split('\n').map(s => s.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);
+                        if (input.includes(',')) return input.split(',').map(s => s.trim()).filter(Boolean);
+                        return [input];
+                    }
+                }
+                return [String(input)];
+            };
+
+            // Helper specifically for job matches which should be objects
+            const ensureJobArray = (input) => {
+                if (!input) return [];
+                if (Array.isArray(input)) return input.map(item => {
+                    if (typeof item === 'object' && item.title) return item;
+                    return { title: String(item), score: 0 };
+                });
+                if (typeof input === 'string') {
+                    try {
+                        const parsed = JSON.parse(input);
+                        if (Array.isArray(parsed)) return ensureJobArray(parsed);
+                    } catch (e) {
+                        return [{ title: input, score: 0 }];
+                    }
+                }
+                return [];
+            };
+
+            const cleanedResult = {
+                ...result,
+                extracted_skills: ensureArray(result.extracted_skills),
+                recommendations: ensureArray(result.recommendations),
+                top_jobs: ensureJobArray(result.top_jobs)
+            };
+
             lighthouseResults.update(r => ({ 
                 ...r, 
-                analysis: result, 
+                analysis: cleanedResult, 
                 isSanitized: sanitize || get(lighthouseResults).isSanitized,
                 loading: false 
             }));
-            return result;
+            return cleanedResult;
         } catch (err) {
             lighthouseResults.update(r => ({ ...r, loading: false, error: formatError(err) }));
             throw err;
