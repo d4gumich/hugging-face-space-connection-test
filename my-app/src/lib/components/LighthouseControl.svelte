@@ -29,7 +29,7 @@
     </div>
     
     <div class="status-details">
-        <p><strong>Hardware:</strong> {$lighthouseStatus.hardware}</p>
+        <p><strong>Hardware:</strong> {$lighthouseStatus.loading ? 'Requesting T4 Small...' : $lighthouseStatus.hardware}</p>
         {#if $lighthouseStatus.message}
             <p class="message">{$lighthouseStatus.message}</p>
         {/if}
@@ -39,9 +39,9 @@
         <button 
             class="btn-primary" 
             onclick={lighthouseActions.wakeup}
-            disabled={$lighthouseStatus.loading || $lighthouseStatus.stage === 'RUNNING'}
+            disabled={$lighthouseStatus.loading}
         >
-            {$lighthouseStatus.loading ? 'Processing...' : 'Wake Up Space'}
+            {$lighthouseStatus.loading ? 'Processing...' : ($lighthouseStatus.stage === 'RUNNING' ? 'Restart Engine' : 'Wake Up Space')}
         </button>
         
         <button 
