@@ -1,65 +1,44 @@
-# Svelte library
+# Lighthouse Analysis Dashboard
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+A modernized, high-fidelity dashboard for testing frontend connections to the Lighthouse AI engine on Hugging Face.
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
+## 🚀 Key Features
 
-## Creating a project
+*   **Document History & Caching:** Resumes and analysis results are automatically cached in `localStorage`. Switch between previous analyses instantly without re-processing on the GPU.
+*   **Intelligent Partitioning:** Automatically detects resume headers (Skills, Experience, Summary) and allows users to selectively send specific sections for AI analysis.
+*   **PII Sanitization:** Optional toggle to redact Personally Identifiable Information (Names, Emails, Locations) before text leaves the browser.
+*   **Engine Controls:** Real-time monitoring of the Hugging Face Space status (Running, Building, Sleeping) with manual "Wake Up" and "Restart" capabilities.
+*   **Developer Console:** Fixed console bar at the bottom to capture system logs and provide user-friendly formatting for Hugging Face gateway errors.
+*   **Mock Mode:** High-fidelity mock data support for rapid UI/UX development without consuming API tokens or waiting for cold starts.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## 🛠 Getting Started
 
-```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+### Installation
+```bash
+cd my-app
+npm install
 ```
 
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.13.0 create --template library --no-types --install npm my-app
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+### Development
+Standard mode (connects to local/live backend):
+```bash
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
-
-## Building
-
-To build your library:
-
-```sh
-npm pack
+**Mock Mode** (uses internal geospatial mock data):
+```bash
+npm run dev:mock
 ```
 
-To create a production version of your showcase app:
+## 🎨 Design System
+The dashboard uses the **Data4Good Design Palette**:
+*   **Primary Blue:** `#1b3350`
+*   **Accent Gold:** `#e3b878`
+*   **Background:** `#fffcf3`
+*   **Typography:** Outfit (Headings) & Open Sans (Body)
 
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
-
-## Publishing
-
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```sh
-npm publish
-```
+## 📦 Tech Stack
+*   **Framework:** Svelte 5 (Runes mode)
+*   **Build Tool:** Vite
+*   **State Management:** Svelte Writable Stores with persistence
+*   **Icons/Transitions:** Native Svelte transitions
